@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Kleine Bibliothek</title>
+    <!-- Bootstrap CSS für responsives Design -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    
+    <style>
+    /* Zusätzliche CSS-Stile können hier hinzugefügt werden */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="my-4">Kleine Bibliothek</h1>
+        <!-- Buttons für Mitglied und Vorstand -->
+        <div class="mb-3">
+            <button id="mitgliedBtn" class="btn btn-primary">Mitglied</button>
+            <button id="vorstandBtn" class="btn btn-secondary">Vorstand</button>
+        </div>
+
+        <!-- Bereich für die Anzeige der Bücher -->
+        <div id="bookList">
+            <!-- Buchdaten werden hier dynamisch eingefügt -->
+        </div>
+
+        <!-- Formular zum Hinzufügen neuer Bücher (standardmäßig versteckt) -->
+        <div id="newBookForm" style="display: none;">
+            <h3>Neues Buch hinzufügen</h3>
+            <form>
+                <div class="form-group">
+                    <label for="titel">Titel</label>
+                    <input type="text" class="form-control" id="titel" required>
+                </div>
+                <div class="form-group">
+                    <label for="autor">Autor</label>
+                    <input type="text" class="form-control" id="autor" required>
+                </div>
+                <div class="form-group">
+                    <label for="beschreibung">Beschreibung</label>
+                    <textarea class="form-control" id="beschreibung" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Hinzufügen</button>
+            </form>
+        </div>
+
+        <!-- Bereich zum Herunterladen der aktualisierten JSON-Datei -->
+        <div id="downloadSection" style="display: none;" class="mt-3">
+            <a id="downloadLink" href="#" class="btn btn-info">Aktualisierte Bibliothek herunterladen</a>
+        </div>
+    </div>
+
+    <!-- Einbindung von jQuery und Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Popper und Bootstrap JS für Bootstrap 4 -->
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
+
+    <!-- Eigene JavaScript-Funktionen -->
+    <script>
+    $(document).ready(function() {
+        let books = [];
+        let isVorstand = false;
+        const password = "geheim"; // Festes Passwort für den Vorstand-Modus
+
+        // Funktion zum Laden der Buchdaten
+        function loadBooks() {
+            $.ajax({
+                url: 'bibliothek.json',
+                dataType: 'json',
+                cache: false,
+                success: function(data) {
+                    books = data;
+                    displayBooks();
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.log('JSON-Datei nicht gefunden oder leer. Initialisiere leere Datenstruktur.');
+                    books = [];
+                    displayBooks();
+                }
+            });
+        }
+
+        // Funktion zur Anzeige der Bücher
+        function displayBooks() {
+            let html = '';
+            if (books.length === 0) {
+                html += '<p>Keine Bücher vorhanden.</p>';
+            } else {
+                html += '<table class="table table-striped">';
+                html += '<thead><tr>';
+                html += '<th>Titel</th><th>Autor</th><th>Beschreibung</th><th>Ausgeliehen</th><th>Seit Wann</th><th>Bis Wann</th><th>An Wen</th>';
+                if (isVorstand) {
+                    html += '<th>Aktionen</th>';
+                }
+                html += '</tr></thead><tbody>';
+
+                books.forEach(function(book, index) {
+                    html += '<tr>';
+                    html += '<td>' + book.titel + '</td>';
+                    html += '<td>' + book.autor + '</td>';
+                    html += '<td>' + book.beschreibung + '</td>';
+                    html += '<td>' + (book.ausgeliehen ? 'Ja' : 'Nein') + '</td>';
+                    html += '<td>' + (book.seitWann || '') + '</td>';
+                    html += '<td>' + (book.bisWann || '') + '</td>';
+                    html += '<td>' + (book.anWen || '') + '</td>';
+                    if (isVorstand) {
+                        html += '<td>';
+                        if (!book.ausgeliehen) {
+                            html += '<button class="btn btn-sm btn-warning ausleihenBtn" data-index="' + index + '">Ausleihen</button>';
+                        } else {
+                            html += '<button class="btn btn-sm btn-success zurueckgebenBtn" data-index="' + index + '">Zurückgeben</button>';
+                        }
+                        html += '</td>';
+                    }
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table>';
+            }
+
+            $('#bookList').html(html);
+        }
+
+        // Event-Handler für Mitglied-Button
+        $('#mitgliedBtn').click(function() {
+            isVorstand = false;
+            $('#newBookForm').hide();
+            $('#downloadSection').hide();
+            displayBooks();
+        });
+
+        // Event-Handler für Vorstand-Button mit Passwortabfrage
+        $('#vorstandBtn').click(function() {
+            let eingabe = prompt('Bitte Passwort eingeben:');
+            if (eingabe === password) {
+                isVorstand = true;
+                $('#newBookForm').show();
+                $('#downloadSection').show();
+                displayBooks();
+            } else {
+                alert('Falsches Passwort!');
+            }
+        });
+
+        // Event-Handler für das Hinzufügen neuer Bücher
+        $('#newBookForm form').submit(function(e) {
+            e.preventDefault();
+            let newBook = {
+                titel: $('#titel').val(),
+                autor: $('#autor').val(),
+                beschreibung: $('#beschreibung').val(),
+                ausgeliehen: false,
+                seitWann: '',
+                bisWann: '',
+                anWen: ''
+            };
+            books.push(newBook);
+            displayBooks();
+            updateDownloadLink();
+            // Formular zurücksetzen
+            $('#newBookForm form')[0].reset();
+        });
+
+        // Event-Handler für Ausleihen und Zurückgeben
+        $('#bookList').on('click', '.ausleihenBtn', function() {
+            let index = $(this).data('index');
+            let anWen = prompt('Name des Ausleihers:');
+            let seitWann = prompt('Ausleihdatum (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
+            let bisWann = prompt('Rückgabedatum (YYYY-MM-DD):');
+
+            books[index].ausgeliehen = true;
+            books[index].anWen = anWen;
+            books[index].seitWann = seitWann;
+            books[index].bisWann = bisWann;
+
+            displayBooks();
+            updateDownloadLink();
+        });
+
+        $('#bookList').on('click', '.zurueckgebenBtn', function() {
+            let index = $(this).data('index');
+            books[index].ausgeliehen = false;
+            books[index].anWen = '';
+            books[index].seitWann = '';
+            books[index].bisWann = '';
+
+            displayBooks();
+            updateDownloadLink();
+        });
+
+        // Funktion zum Aktualisieren des Download-Links
+        function updateDownloadLink() {
+            let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(books, null, 2));
+            $('#downloadLink').attr('href', dataStr);
+            $('#downloadLink').attr('download', 'aktualisierte_bibliothek.json');
+        }
+
+        // Initiales Laden der Buchdaten
+        loadBooks();
+    });
+    </script>
+</body>
+</html>
